@@ -1,16 +1,16 @@
-function Chronoshift (verboseLogs = false, logTime = false, writeLogs = true) {
+function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true) {
   this.version = 0.5;
   this.tasks = {};
   this.logs = [];
-  this.verboseLogs = verboseLogs;
-  this.logTime = logTime;
-  this.writeLogs = writeLogs;
+  this.verboseLogs = false;
+  this.verboseTime = false;
+  this.writeLogs = true;
 
-  this.setLogging = function(verboseLogs, logTime = this.logTime, writeLogs = this.writeLogs){
+  this.setLogging = function(verboseLogs, verboseTime = this.verboseTime, writeLogs = this.writeLogs){
     if (verboseLogs == undefined)
       return;
     this.verboseLogs = !!verboseLogs;
-    this.logTime = !!logTime;
+    this.verboseTime = !!verboseTime;
     this.writeLogs = !!writeLogs;
   };
 
@@ -18,7 +18,7 @@ function Chronoshift (verboseLogs = false, logTime = false, writeLogs = true) {
     let now = new Date();
     let nowAsString = now.toLocaleString() + "." + now.getMilliseconds();
     if (this.verboseLogs){
-      if (this.logTime){
+      if (this.verboseTime){
         console.log("[" + nowAsString + "] \r");
       }
     console.log.apply(null,arguments);
@@ -59,7 +59,7 @@ function Chronoshift (verboseLogs = false, logTime = false, writeLogs = true) {
       else{
         pid = setTimeout(()=> {handler();this.log("Task executed:", name);this.stop(name); }, delay);
       }
-      this.tasks[name] = {"pid": pid, "description": description, "repeat": repeat};
+      this.tasks[name] = {"pid": pid, "timeout":delay, "description": description, "repeat": repeat};
       this.log("Added a task ", name, " with timeout ", delay, repeat? " looped" : "");
       return pid;
     };
@@ -99,4 +99,9 @@ function Chronoshift (verboseLogs = false, logTime = false, writeLogs = true) {
     }
     this.log("Stoping task ", id, " finished");
   };
+  
+    this.run(()=>{}, 42000000, false, "example", "This is a sample task. It will do nothing.");
+    this.verboseLogs = verboseLogs;
+    this.verboseTime = verboseTime;
+    this.writeLogs = writeLogs;
 }
