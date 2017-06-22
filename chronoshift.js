@@ -43,26 +43,74 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   }
 
   this.run = function(handler, delay, repeat, name, description){
-      this.log("Creating task: ", JSON.stringify( arguments));
-      if(!handler)
-        return false;
-      let pid = 0;
-      delay = delay? +delay : 0;
-      delay = typeof delay == "number"? delay: 0;
-      name = typeof name == "string"? name.replace(/ /g, "_"): "task_"+Math.random().toString(32).substr(2);
-      while (this.tasks[name])
-          name = "task_"+Math.random().toString(32).substr(2);
-      description = description? "" + description : "No description";
-      if (repeat){
-        pid = setInterval(()=>{handler();this.log("Task executed:", name);}, delay);
-      }
-      else{
-        pid = setTimeout(()=> {handler();this.log("Task executed:", name);this.stop(name); }, delay);
-      }
-      this.tasks[name] = {"pid": pid, "timeout":delay, "description": description, "repeat": repeat};
-      this.log("Added a task ", name, " with timeout ", delay, repeat? " looped" : "");
-      return pid;
+    this.log("Creating task: ", JSON.stringify( arguments));
+    if(!handler)
+      return false;
+    let pid = 0;
+    delay = delay? +delay : 0;
+    delay = typeof delay == "number"? delay: 0;
+    name = typeof name == "string"? name.replace(/ /g, "_"): "task_"+Math.random().toString(32).substr(2);
+    while (this.tasks[name])
+        name = "task_"+Math.random().toString(32).substr(2);
+    description = description? "" + description : "No description";
+    if (repeat){
+      pid = setInterval(()=>{handler();this.log("Task executed:", name);}, delay);
+    }
+    else{
+      pid = setTimeout(()=> {handler();this.log("Task executed:", name);this.stop(name); }, delay);
     };
+    let at = new Date(Date.now()+delay);
+    at = at.toLocaleString().replace(/(T|Z)/gi, " ");
+    console.log(at);
+    this.tasks[name] = {"pid": pid, "timeout":delay, "at": at, "description": description, "repeat": repeat};
+    this.log("Added a task ", name, " with timeout ", delay, repeat? " looped" : "");
+    return pid;
+  };
+
+  this.runAt = function(handler, at, name, description){
+    name = typeof name == "string"? name.replace(/ /g, "_"): "task_"+Math.random().toString(32).substr(2);
+    while (this.tasks[name])
+      name = "task_"+Math.random().toString(32).substr(2);
+    let now = new Date(), then = new Date();
+    let patterns = [
+      /\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}.\d{1,3}/,
+      /\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}/,
+      /\d{2,4}-\d{1,2}-\d{1,2}/,
+      /\d{1,2}:\d{1,2}:\d{1,2}.\d{1,3}/,
+      /\d{1,2}:\d{1,2}:\d{1,2}/
+    ];
+    let inputCase = -1;
+    patterns.forEach(function(e, i, a){
+      if(inputCase != -1)
+        return;
+      if (e.test(at)){
+        inputCase = i;
+      };
+    });
+    if (inputCase<0)
+      return -1;
+    let atString = at.match(patterns[inputCase])[0];
+    switch (inputCase) {
+      case 0:
+      case 1:
+      case 2:
+        atStringYear = atString.split("-")[0];
+        if (atStringYear.length == 2)
+            atString = "20" + atString;
+        break;
+      case 3:
+      case 4:
+          atString = "" + now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate() + " " + atString;
+      default:
+    }
+    then = new Date(atString);
+    if (then < now && inputCase>2) {
+      then = new Date(then.getTime() + 24*60*60*1000);
+    }
+
+    let delay = then - now;
+    this.run(handler, delay, false, name, description);
+  };
 
   this.stop = function (id) {
     this.log("Stoping task: ", id);
@@ -99,7 +147,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     }
     this.log("Stoping task ", id, " finished");
   };
-  
+
     this.run(()=>{}, 42000000, false, "example", "This is a sample task. It will do nothing.");
     this.verboseLogs = verboseLogs;
     this.verboseTime = verboseTime;
