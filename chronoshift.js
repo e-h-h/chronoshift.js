@@ -1,11 +1,17 @@
 function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true) {
+  let self = this;
   this.version = 0.5;
   this.tasks = {};
   this.logs = [];
   this.verboseLogs = false;
   this.verboseTime = false;
   this.writeLogs = true;
+  this.controlCount = 0;
 
+  //Define type of logging
+  //verboseLogs - print or not print logs in console,
+  //verboseTime - add or not add timestamp
+  //writeLogs - store or not store logs in inner storage (this.logs)
   this.setLogging = function(verboseLogs, verboseTime = this.verboseTime, writeLogs = this.writeLogs){
     if (verboseLogs == undefined)
       return;
@@ -14,6 +20,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     this.writeLogs = !!writeLogs;
   };
 
+  //Logging events with settings from setLogging options
   this.log = function(){
     let now = new Date();
     let nowAsString = now.toLocaleString() + "." + now.getMilliseconds();
@@ -34,14 +41,43 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       this.logs.push({"log": logData, "time": nowAsString, "timestamp": now.getTime()});
   };
 
-  this.showLogs = function(){
-    console.table(this.logs);
+  //Print logs in console as a table from start to end
+  this.showLogs = function(start, end){
+    let requiredSlice = this.logs;
+    if ( (start || end)){
+      start = +start || 0;
+      end = +end || (this.logs.length);
+      if (!isNaN(start+end))
+        requiredSlice = this.logs.slice(start, end);
+    }
+    console.table(requiredSlice);
   };
 
-  this.showTasks = function(){
-    console.table(this.tasks);
+  //Print tasks in console as a table from start to end OR some set of names
+  this.showTasks = function(startOrSet, end){
+    let requiredSlice = this.tasks;
+    if ( (startOrSet || end) && !startOrSet.slice){
+      let start = startOrSet;
+      start = +start || 0;
+      end = +end || (this.tasks.length);
+      if (!isNaN(start+end))
+        requiredSlice = this.tasks.slice(start, end);
+    }
+    else if (startOrSet && !end && startOrSet.forEach){
+      let set = startOrSet;
+      requiredSlice = [];
+      set.forEach(function(e, i, a){
+        requiredSlice.push(self.tasks[e]);
+      });
+    }
+    console.table(requiredSlice);
+
   }
 
+  //Run function [handler] with [delay]ms delay, if [repeat] then repeat [handler] every [delay]ms
+  //This function will be saved as task [name || random_string] with description [description]
+  //[name] must be valid js variable name or it will be transliterated into such name
+  //Only necessary parameters are "handler" and "delay"
   this.run = function(handler, delay, repeat, name, description){
     this.log("Creating task: ", JSON.stringify( arguments));
     if(!handler)
@@ -49,7 +85,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     let pid = 0;
     delay = delay? +delay : 0;
     delay = typeof delay == "number"? delay: 0;
-    name = typeof name == "string"? name.replace(/ /g, "_"): "task_"+Math.random().toString(32).substr(2);
+    name = typeof name == "string"? name.replace(/([^a-zA-Z0-9])/g, "_").replace(/^\d/, 'd'): "task_"+Math.random().toString(32).substr(2);
     while (this.tasks[name])
         name = "task_"+Math.random().toString(32).substr(2);
     description = description? "" + description : "No description";
@@ -67,6 +103,13 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     return pid;
   };
 
+  //Run function [handler] exactly at [at]; if [at] not a full date it will be updated with suggestions,
+  //For example, 23-12-19 -> 2023, 19 december, 00:00:00;
+  //22:43 -> today at 22:43:00
+  //You can use ms in date format, but they will be ignored
+  //This function will be saved as task [name || random_string] with description [description]
+  //[name] must be valid js variable name or it will be transliterated into such name
+  //Only necessary parameters are "handler" and "at"
   this.runAt = function(handler, at, name, description){
     name = typeof name == "string"? name.replace(/ /g, "_"): "task_"+Math.random().toString(32).substr(2);
     while (this.tasks[name])
@@ -77,7 +120,9 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       /\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}/,
       /\d{2,4}-\d{1,2}-\d{1,2}/,
       /\d{1,2}:\d{1,2}:\d{1,2}.\d{1,3}/,
-      /\d{1,2}:\d{1,2}:\d{1,2}/
+      /\d{1,2}:\d{1,2}:\d{1,2}/,
+      /\d{1,2}:\d{1,2}/
+
     ];
     let inputCase = -1;
     patterns.forEach(function(e, i, a){
@@ -100,6 +145,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
         break;
       case 3:
       case 4:
+      case 5:
           atString = "" + now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate() + " " + atString;
       default:
     }
@@ -107,11 +153,11 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     if (then < now && inputCase>2) {
       then = new Date(then.getTime() + 24*60*60*1000);
     }
-
     let delay = then - now;
     this.run(handler, delay, false, name, description);
   };
 
+  //Remove task by task name in cronoshift or process id from list
   this.stop = function (id) {
     this.log("Stoping task: ", id);
 
@@ -148,8 +194,25 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     this.log("Stoping task ", id, " finished");
   };
 
-    this.run(()=>{}, 42000000, false, "example", "This is a sample task. It will do nothing.");
-    this.verboseLogs = verboseLogs;
-    this.verboseTime = verboseTime;
-    this.writeLogs = writeLogs;
+  this.openControlPanel = function(){
+    console.log("CP opened");
+  };
+
+  //Watch keyup and waiting for Ctr Ctrl Ctrl to open control panel
+  window.addEventListener("keyup", function(e){
+    console.log(e);
+    if (e.key == "Control")
+      self.controlCount++;
+    if (self.controlCount>=3){
+      self.controlCount = 0;
+      self.openControlPanel();
+    }
+     console.log(self);
+  });
+
+  this.verboseLogs = verboseLogs;
+  this.verboseTime = verboseTime;
+  this.writeLogs = writeLogs;
+  this.run(()=>{}, 42000000, false, "example", "This is a sample task. It will do nothing.");
+
 }
