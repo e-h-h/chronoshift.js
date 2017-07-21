@@ -7,6 +7,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   this.verboseTime = false;
   this.writeLogs = true;
   this.controlCount = 0;
+  this.cpOpened = false;
 
   //Define type of logging
   //verboseLogs - print or not print logs in console,
@@ -84,8 +85,16 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       return false;
     let pid = 0;
     delay = delay? +delay : 0;
-    delay = typeof delay == "number"? delay: 0;
-    name = typeof name == "string"? name.replace(/([^a-zA-Z0-9])/g, "_").replace(/^\d/, 'd'): "task_"+Math.random().toString(32).substr(2);
+    delay = ( typeof delay == "number" && !isNaN(delay) )? delay: 0;
+    name = typeof name == "string"?
+      //replace with _ all not valid in variable symbols
+      name.replace(/([^a-zA-Z0-9_$])/g, "_")
+        //then replace first symbol with _ if this sybol is digit
+        .replace(/^\d/, 'd'):
+      //generate random name if argument name is not a string
+      "task_"+Math.random().toString(32).substr(2);
+    //check for existence of this name in task
+    //yes, this is possible, even if chanse less then 1:1 000 000
     while (this.tasks[name])
         name = "task_"+Math.random().toString(32).substr(2);
     description = description? "" + description : "No description";
@@ -98,16 +107,25 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     let at = new Date(Date.now()+delay);
     at = at.toLocaleString().replace(/(T|Z)/gi, " ");
     console.log(at);
-    this.tasks[name] = {"pid": pid, "timeout":delay, "at": at, "description": description, "repeat": repeat};
+    this.tasks[name] = {
+      "pid": pid,
+      "timeout":delay,
+      "at": at,
+      "description": description,
+      "repeat": repeat,
+      "name": name,
+      "handler": handler
+    };
     this.log("Added a task ", name, " with timeout ", delay, repeat? " looped" : "");
     return pid;
   };
 
   //Run function [handler] exactly at [at]; if [at] not a full date it will be updated with suggestions,
   //For example, 23-12-19 -> 2023, 19 december, 00:00:00;
-  //22:43 -> today at 22:43:00
+  //22:43 -> today at 22:43:00, but if too late to do so then it will be tomorow at 22:43:00
   //You can use ms in date format, but they will be ignored
-  //This function will be saved as task [name || random_string] with description [description]
+  //Timestamp also acceptable
+  //This task will be saved as task [name || random_string] with description [description]
   //[name] must be valid js variable name or it will be transliterated into such name
   //Only necessary parameters are "handler" and "at"
   this.runAt = function(handler, at, name, description){
@@ -115,47 +133,85 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     while (this.tasks[name])
       name = "task_"+Math.random().toString(32).substr(2);
     let now = new Date(), then = new Date();
-    let patterns = [
-      /\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}.\d{1,3}/,
-      /\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}/,
-      /\d{2,4}-\d{1,2}-\d{1,2}/,
-      /\d{1,2}:\d{1,2}:\d{1,2}.\d{1,3}/,
-      /\d{1,2}:\d{1,2}:\d{1,2}/,
-      /\d{1,2}:\d{1,2}/
 
-    ];
-    let inputCase = -1;
-    patterns.forEach(function(e, i, a){
-      if(inputCase != -1)
+    if (typeof at == "string"){
+      let patterns = [
+        /^\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}.\d{1,3}$/,
+        /^\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}$/,
+        /^\d{2,4}-\d{1,2}-\d{1,2}$/,
+        /^\d{1,2}:\d{1,2}:\d{1,2}.\d{1,3}$/,
+        /^\d{1,2}:\d{1,2}:\d{1,2}$/,
+        /^\d{1,2}:\d{1,2}$/
+
+      ];
+      let inputCase = -1;
+      patterns.forEach(function(e, i, a){
+        if(inputCase != -1)
         return;
-      if (e.test(at)){
-        inputCase = i;
-      };
-    });
-    if (inputCase<0)
-      return -1;
-    let atString = at.match(patterns[inputCase])[0];
-    switch (inputCase) {
-      case 0:
-      case 1:
-      case 2:
-        atStringYear = atString.split("-")[0];
-        if (atStringYear.length == 2)
+        if (e.test(at)){
+          inputCase = i;
+        };
+      });
+      if (inputCase<0){
+        this.console.log("Function runAt aborted. Wrong date/time string: ", at);
+        return false;
+      }
+      let atString = at.match(patterns[inputCase])[0];
+      switch (inputCase) {
+        case 0:
+        case 1:
+        case 2:
+          atStringYear = atString.split("-")[0];
+          if (atStringYear.length == 2)
             atString = "20" + atString;
         break;
-      case 3:
-      case 4:
-      case 5:
+        case 3:
+        case 4:
+        case 5:
           atString = "" + now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate() + " " + atString;
-      default:
+        default:
+      }
+      then = new Date(atString);
+      if (then < now && inputCase>2) {
+        then = new Date(then.getTime() + 24*60*60*1000);
+      }
     }
-    then = new Date(atString);
-    if (then < now && inputCase>2) {
-      then = new Date(then.getTime() + 24*60*60*1000);
+    else if (typeof at == "number" && !isNaN(at))
+      then = new Date(at);
+    else{
+      this.log("Invalid \"at\" argument in call runAt!");
+      return false;
     }
+
     let delay = then - now;
+    if (delay<0){
+      this.log("Function can not be run at ", then, " nj");
+      return false;
+    }
     this.run(handler, delay, false, name, description);
+    return true;
   };
+
+  //Run handler of task by name or pid
+  this.runTask = function(id){
+    let name = typeof id == "number"? this.getTaskName(id) : id;
+    if ( (!name || !this.tasks[name]))
+      return false;
+    this.log("Forced run task \"", name, "\" with pid ", this.tasks[name].pid);
+    this.tasks[name].handler();
+    return true;
+  };
+
+  this.getTaskName = function(pid){
+    if (typeof pid != "number")
+      return false;
+    for(x in this.tasks){
+      if (this.tasks[x].pid == pid){
+        return x;
+      }
+    }
+    return false;
+  }
 
   //Remove task by task name in cronoshift or process id from list
   this.stop = function (id) {
@@ -168,51 +224,62 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
         clearTimeout(id);
     }
     let found = false;
+    let name = false;
     try{
       if (typeof id == "number"){
-        for(x in this.tasks){
-          if (this.tasks[x].pid == id){
-            stopTask(id,this.tasks[x].repeat);
-            delete this.tasks[x];
-            found = true;
-            this.log("---Task with pid ", id, " found");
-          }
+        name = this.getTaskName(id);
+        if (!name){
+          this.log("---Not found task with pid ", id, "!");
+          return false;
         }
+        this.log("Task with pid ", id, " found");
       }
       else if (typeof id == "string") {
-        if (this.tasks[id]){
-          stopTask(this.tasks[id].pid, this.tasks[id].repeat);
-          delete this.tasks[id];
-          found = true;
-          this.log("---Task ", id, " found");
-         }
+        if (!this.tasks[id]){
+          this.log("---Task ", id), " not found!";
+          return false;
+        }
+        this.log("Task ", id, " found");
       }
+      let finalId = name? name : id;
+      stopTask(this.tasks[finalId].pid, this.tasks[finalId].repeat);
+      delete this.tasks[finalId];
     }
     catch (e){
-      this.log("Problems when trying to stop ", id, " :", e);
+      this.log("---Problems when trying to stop ", id, " :", e);
+      return false;
     }
     this.log("Stoping task ", id, " finished");
+    return true;
   };
 
   this.openControlPanel = function(){
+    self.cpOpened = true;
     console.log("CP opened");
+  };
+
+  this.closeControlPanel = function(){
+    if (!self.cpOpened)
+      return
+    self.cpOpened = false;
+    console.log("CP closed");
   };
 
   //Watch keyup and waiting for Ctr Ctrl Ctrl to open control panel
   window.addEventListener("keyup", function(e){
-    console.log(e);
     if (e.key == "Control")
       self.controlCount++;
+    else if (e.key == "Escape")
+      self.closeControlPanel();
     if (self.controlCount>=3){
       self.controlCount = 0;
       self.openControlPanel();
     }
-     console.log(self);
   });
 
   this.verboseLogs = verboseLogs;
   this.verboseTime = verboseTime;
   this.writeLogs = writeLogs;
-  this.run(()=>{}, 42000000, false, "example", "This is a sample task. It will do nothing.");
+  this.run(()=>{console.log("Example function executed");}, 42000000, false, "example", "This is a sample task. It will do nothing.");
 
 }
