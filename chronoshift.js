@@ -1,5 +1,6 @@
 function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true) {
   let self = this;
+  window._chronoshift = this;
   this.version = 0.5;
   this.tasks = {};
   this.logs = [];
@@ -253,16 +254,159 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     return true;
   };
 
+  //Code with long function names, especially with methods as arguments of method
+  //hard to read, so here created some shortcuts
+
   this.openControlPanel = function(){
+    if (self.cpOpened){
+      return false;
+    }
+
+    let eCreate = function(e) {
+          return document.createElement(e);
+        },
+
+        eFind = function(e) {
+          return document.querySelector(e);
+        },
+
+        ePush = function(element, children){
+          children.forEach(function(e, i, a){
+            element.appendChild(e)
+          });
+        }
+
+        appendChain = function(x) {
+          this.appendChild(x);
+          return this;
+        };
+
+        //Functions for create table row and cell
+        createStrip = function(){
+          let strip = eCreate('div');
+          strip.className = 'strip'
+          strip.appendChain = appendChain;
+          return strip;
+        };
+
+        createCell = function(width, content, align){
+          align = align? align : "center";
+          let cell = eCreate('div');
+          cell.className = 'cell';
+          cell.style.width = width;
+          cell.style.textAlign = align;
+          if (typeof content == "object")
+            cell.appendChild(content);
+          else
+            cell.innerHTML = '' + content;
+          return cell;
+
+        };
+
+    //Styling for control panel.
+    let style = eCreate('style');
+    style.innerHTML = `
+  .cs-control{
+    border-radius: 3px;
+    background-color: ivory;
+    border: 1px solid black;
+    width: 90%;
+    left:5%;
+    height:90%;
+    top:5%;
+    overflow: auto;
+    position:fixed;
+  }
+  .cs-control button{
+    border-radius: 3px;
+    font-size: 14px;
+  }
+  .cs-control .strip{
+    min-width: 99%;
+    height: 20px;
+    margin: 5px 0px 5px;
+  }
+  .cs-control .strip:hover{
+    background-color: #aaffaa;
+  }
+  .cs-control .strip .cell{
+    display: inline-block;
+    margin: 0px;
+    min-height: 20px;
+    overflow:hidden;
+  }
+  .cs-control .strip .cell:hover{
+    background-color: #ddffdd;
+  }
+`;
+    //Root div of control panel.
+    let root = eCreate('div');
+    root.className = "cs-control";
+    root.id = "cs-cp-root";
+    root.appendChild(style)
+    let columnNames = createStrip();
+    ePush(columnNames, [
+      createCell("50px", "PID"),
+      createCell("150px", "Name"),
+      createCell("300px", "Description"),
+      createCell("200px", "Delay/interval (ms)"),
+      createCell("200px", "Run at <span title = 'This is approximate time when task will be executed. For looped tasks this column shows time of first run'>(?)</span>"),
+      createCell("400px", "Options")
+    ]);
+    root.appendChild(columnNames);
+    for(name in self.tasks){
+      let task = self.tasks[name],
+          strip = createStrip(),
+          options = eCreate('span'),
+          buttonRun = eCreate('button'),
+          buttonRemove = eCreate('button'),
+          buttonFreeze = eCreate('button');
+      buttonRun.innerHTML = "Run task";
+      buttonRemove.innerHTML = "Remove task";
+      buttonFreeze.innerHTML = "Freeze task";
+      buttonRun.id = "run" + name;
+      buttonRemove.id = "remove" + name;
+      buttonFreeze.id = "freeze" + name;
+      console.log(name);
+      buttonRemove.addEventListener("click", function(){
+        self.stop(name);
+      });
+      buttonRun.addEventListener("click", function(){
+        self.runTask(""+name);
+      });
+      buttonFreeze.addEventListener("click", function(){
+        self.freezeTask(name);
+      });
+
+
+      ePush(options,[
+        buttonRun,
+        buttonRemove,
+        buttonFreeze
+      ]);
+
+      ePush(strip, [
+        createCell("50px", task.pid),
+        createCell("150px", task.name.length > 21? `<span title="${task.name}">${task.name}</span>` : task.name),
+        createCell("300px", task.description.length > 42? `<span title="${task.description}">${task.description}</span>` : task.description),
+        createCell("200px", task.timeout),
+        createCell("200px", task.at),
+        createCell("400px", options)
+
+      ]);
+      root.appendChild(strip);
+    }
+    document.body.appendChild(root);
     self.cpOpened = true;
-    console.log("CP opened");
+    this.log("CP opened");
   };
 
   this.closeControlPanel = function(){
     if (!self.cpOpened)
-      return
+      return;
+    document.body.removeChild(document.querySelector('#cs-cp-root'));
     self.cpOpened = false;
-    console.log("CP closed");
+    this.log("CP closed");
   };
 
   //Watch keyup and waiting for Ctr Ctrl Ctrl to open control panel
