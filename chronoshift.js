@@ -1,5 +1,7 @@
 function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true) {
   let self = this;
+  if (window._chronoshift)
+    return window._chronoshift;
   window._chronoshift = this;
   this.version = 0.5;
   this.tasks = {};
@@ -361,15 +363,17 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
           buttonRun = eCreate('button'),
           buttonRemove = eCreate('button'),
           buttonFreeze = eCreate('button');
-      buttonRun.innerHTML = "Run task";
-      buttonRemove.innerHTML = "Remove task";
-      buttonFreeze.innerHTML = "Freeze task";
+      buttonRun.innerHTML = "Run";
+      buttonRemove.innerHTML = "Remove";
+      buttonFreeze.innerHTML = "Freeze";
       buttonRun.id = "run" + name;
+      //@@@
+      buttonRun.className = `_chronoshift.run('${name}')`;
       buttonRemove.id = "remove" + name;
       buttonFreeze.id = "freeze" + name;
       console.log(name);
       buttonRemove.addEventListener("click", function(){
-        self.stop(name);
+        _chronoshift.stop(name);
       });
       buttonRun.addEventListener("click", function(){
         self.runTask(""+name);
