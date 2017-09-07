@@ -211,7 +211,10 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     return true;
   };
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 576fd63a8adb0ee27966a2d4f0f169545590b255
   //Return name of task with pid == [pid] || false
   this.getTaskName = function(pid){
     if (typeof pid != "number")
