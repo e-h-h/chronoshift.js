@@ -3,56 +3,135 @@ chronoshift.js
 Not now!
 --------
 
-This is a simple library to execute your code. Later. Main idea is create a usefull tool for delayed execution with logs and easy control.
+This is a simple library to execute your code. Later. Main idea is to create a task manager for javascript with some GUI.
 
 Basic usage
 -----------
-Iclude this library to your project as any other js file.
-First you need to create an instance of chronoshift, it is a constructor and have no default variable as jQuery or lodash:
+
+Include this library to your project as any other js file.
+First you need to create an instance of chronoshift, like that:
 
     var cs = new Cronoshift();
 
 Then you can use it's api for execution of your code:
 
     cs.run(my_function, 5000); // call my_function with 5 seconds delay
+
 Full format is
 
     run(function, delay, loop, name, description)
     //function - your function, obviously,
     //delay - delay in ms,
     //loop - boolean variable that defines whether function will run once or will be endlessly repeated with same delay; non-boolean values will be casted
-    //name - name of task, this is string value which should be a valid js vaiable name; if empty name will be generated randomly
+    //name - name of task, this is string value which should be a valid js variable name; if empty, name will be generated randomly
     //description - string to describe your process, for human use only, you can write anything here
+
 Example of full format:
 
     cs.run(
-      ()=>{console.log("My test task!")},
-      10000,
-      "repeat",
-      "servant1",
-      "Perfect servant"
+      ()=>{console.log("My test task!")},  //write into console "My test task!"
+      10000,                               //after 10 secons
+      "repeat",                            //every 10 seconds
+      "servant1",                          //this task name is servant1
+      "Perfect servant"                    //this description you will see in logs and GUI
     );
 This method returns timer id, a number, using it you can stop execution of task:
 
-    //for example, run returns a 42
+    //for example, when run servant1 it returns a 42
     cs.stop(42);
+
 This code will stop a task with this id, no mater this is cycle or delayed execution. Not very usefull, right? That's why we need a name parameter in run method! Now you can do this:
 
     cs.stop("servant1");
+
 Note that you cant turn off a timer not created with chronoshift. All timers stored in cs.tasks and if id or name not in this list it will be ignored.
 
+In some cases more useful method is runAt which allow you to run code at certain time, for example:
+
+    //lunch time, any day at 12:30
+    cs.runAt(
+      ()=>{alert("Lunch!");},
+      "12:30:00"
+    );
+
+    //her Birthday, six of may, 30 minutes before leaving the office
+    cs.runAt(
+      ()=>{alert("You need a gold necklace!");},
+      "2017-05-06 16:30:00",
+      "Jane_birthday"  //name of task
+      );
+
+    //25 years working here, time to get drunk
+    cs.runAt(
+      ()=>{alert("You waste your life by coding javascript!");},
+      "2045-12-21 09:30",
+      "wasted",                                //name of task
+      "You still have some time to see Paris!" //description
+    );
+
+
+Not a full date it will be updated with suggestions, for example, 23-12-19 -> 2023, 19 december, 00:00:00;
+22:43 -> today at 22:43:00, but if too late to do so then it will be tomorow at 22:43:00.
+You can use ms in date format, but they will be ignored, timestamp also acceptable
+
+Managing tasks
+--------------
+
+Any task may be run immediatelly, restarted after being stoped and completelly removed.
+
+To execute task right now, not after it's delay you should call method runTask:
+
+    //by name:
+    cs.runTask('servant1');
+    //or by id:
+    cs.runTask(42);
+
+This method will not change task, it only run chosen task and his execution shedule will not be changed. If task was stoped and then runTask was called it still will be executed without returning it into shedule.
+
+When task stoped it wil not be deleted and can be restarted:
+
+    //yes, and this method can operate both name or pid,
+    cs.restartTask("servant1");
+
+After this code task will be relaunched. NOT continued, relunched! It means that if you run task with delay 30 seconds, then stop it after 20 seconds and run it again later task will be executed not after rest 10 seconds but after 30 seconds.
+
+And at last, task can be completely removed. It will be cleared from memory, not only from list.
+
+    cs.removeTask(42);
+
+After being removed task may free a lot of memory through closures.
+
+GUI
+---
+
+Just press Ctrl, Ctrl, Ctrl. To close do it again or press Esc. Note that GUI not watching Chronoshift usage through code and you may be needed to reopen GUI to see it.
+
 Logs
-====
+----
+
 Chronoshift have a good logs! You can read them instantly in console or whenever you want it by calling two methods:
 
     cs.showLogs();
     cs.showTasks();
-    
-This metods reads stored logs and show them in nice tables. When new Chronoshift comes, it create a test task(with no action) and log its creation, so you can see what your logs will be looks like.  
+
+This metods reads stored logs and show them in nice tables. When new Chronoshift comes, it create a test task (with no action) and log its creation, so you can see what your logs will be looks like.  
+
+Note that both of this method use experimental console api method console.table() and not guaranted to work properly. If you want to use your own visualisation of logs and tasks you should use fields cs.logs and cs.tasks.
+
+
 By default, console logs are hidden. If you want to see console messages about runing tasks and stoping them you should use:
 
     cs.setLogging(verboseLogs, //show/hide console messages about execution and stopping tasks
                   verboseTime, //show/hide timestamp for messages
                   writeLogs);  //disable/enable logging actions into cs.logs
 
-Note that log one action, adding, executing or deleting a task, requires ~0.1KB of memory, so set the writeLogs to false if you plan very frequent looped tasks. For example, task with interval 100 ms requires about 1KB/s of memory for logging, it is very hard to imagine case when you do so, but 1k of such tasks will log ~1MB/s. Be careful.
+Or you can construct chronoshift with same parameters:
+
+    cs = new Chronoshift(
+      true,  //show logs
+      false, //withoout timestamp
+      true   //store logs
+    );
+    //default values are (false, false, true) - show nothing but store logs
+
+Note that log one action, adding, executing or deleting a task, requires ~0.1KB of memory, so set the writeLogs to false if you plan very frequently looped tasks. For example, task with interval 100 ms requires about 1KB/s of memory for logging, it is very hard to imagine case when you do so, but 1k of such tasks will log ~1MB/s. Be careful.

@@ -1,9 +1,9 @@
 function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true) {
   let self = this;
-  if (window._chronoshift)
-    return window._chronoshift;
-  window._chronoshift = this;
-  this.version = 0.5;
+  window.getChronoshift = function(){
+    return self;
+  };
+  this.version = 1.0;
   this.tasks = {};
   this.logs = [];
   this.verboseLogs = false;
@@ -46,6 +46,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   };
 
   //Print logs in console as a table from start to end
+  //First element have index 0 !
   this.showLogs = function(start, end){
     let requiredSlice = this.logs;
     if ( (start || end)){
@@ -83,7 +84,13 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   //[name] must be valid js variable name or it will be transliterated into such name
   //Only necessary parameters are "handler" and "delay"
   this.run = function(handler, delay, repeat, name, description){
-    this.log("Creating task: ", JSON.stringify( arguments));
+    this.log("Creating task: ", JSON.stringify({
+      "handler":handler,
+      "delay":delay,
+      "repeat":repeat,
+      "name":name,
+      "description":description
+    }));
     if(!handler)
       return false;
     let pid = 0;
@@ -109,7 +116,6 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     };
     let at = new Date(Date.now()+delay);
     at = at.toLocaleString().replace(/(T|Z)/gi, " ");
-    console.log(at);
     this.tasks[name] = {
       "pid": pid,
       "timeout":delay,
@@ -156,7 +162,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
         };
       });
       if (inputCase<0){
-        this.console.log("Function runAt aborted. Wrong date/time string: ", at);
+        this.log("Function runAt aborted. Wrong date/time string: ", at);
         return false;
       }
       let atString = at.match(patterns[inputCase])[0];
@@ -205,6 +211,8 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     return true;
   };
 
+
+  //Return name of task with pid == [pid] || false
   this.getTaskName = function(pid){
     if (typeof pid != "number")
       return false;
@@ -216,10 +224,9 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     return false;
   }
 
-  //Remove task by task name in cronoshift or process id from list
-  this.stop = function (id) {
+  //Stop task by task name in cronoshift or process id from list
+  this.stopTask = function (id) {
     this.log("Stoping task: ", id);
-
     let stopTask = (id, repeat) => {
       if (repeat)
         clearInterval(id);
@@ -246,7 +253,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       }
       let finalId = name? name : id;
       stopTask(this.tasks[finalId].pid, this.tasks[finalId].repeat);
-      delete this.tasks[finalId];
+      this.tasks[finalId].at = 'STOPPED!';
     }
     catch (e){
       this.log("---Problems when trying to stop ", id, " :", e);
@@ -256,10 +263,41 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     return true;
   };
 
+  this.removeTask = function(name){
+    switch (typeof name) {
+      case 'string':
+        "do nothing";
+        break;
+      case 'number':
+        name = this.getTaskName(name);
+        break;
+      default:
+        return false;
+        break;
+    }
+    this.stopTask(name);
+    delete this.tasks[name];
+  }
+
+  this.restartTask = function(name){
+    let handler = this.tasks[name].handler,
+    timeout = this.tasks[name].timeout,
+    repeat = this.tasks[name].repeat,
+    description = this.tasks[name].description;
+    let vl = this.verboseLogs,
+      wl = this.writeLogs;
+    this.verboseLogs = this.writeLogs = false;
+    this.removeTask(name);
+    this.run(handler, timeout, repeat, name, description);
+    this.verboseLogs = vl;
+    this.writeLogs = wl;
+    this.log("Restart task " + name);
+  }
+
   //Code with long function names, especially with methods as arguments of method
   //hard to read, so here created some shortcuts
 
-  this.openControlPanel = function(){
+  this.openControlPanel = function(log){
     if (self.cpOpened){
       return false;
     }
@@ -278,16 +316,10 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
           });
         }
 
-        appendChain = function(x) {
-          this.appendChild(x);
-          return this;
-        };
-
         //Functions for create table row and cell
         createStrip = function(){
           let strip = eCreate('div');
           strip.className = 'strip'
-          strip.appendChain = appendChain;
           return strip;
         };
 
@@ -312,20 +344,29 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     border-radius: 3px;
     background-color: ivory;
     border: 1px solid black;
-    width: 90%;
-    left:5%;
+    min-width: 1300px;
+    left:2%;
     height:90%;
     top:5%;
     overflow: auto;
     position:fixed;
+    opacity: .85;
   }
   .cs-control button{
     border-radius: 3px;
     font-size: 14px;
+    min-width:70px;
+    transition-duration: 500ms;
+    background-color: #ddd;
   }
+
+  .cs-control button:hover{
+    background-color:#aaa;
+  }
+
   .cs-control .strip{
     min-width: 99%;
-    height: 20px;
+    height: 24px;
     margin: 5px 0px 5px;
   }
   .cs-control .strip:hover{
@@ -336,6 +377,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     margin: 0px;
     min-height: 20px;
     overflow:hidden;
+    height:100%;
   }
   .cs-control .strip .cell:hover{
     background-color: #ddffdd;
@@ -345,48 +387,71 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     let root = eCreate('div');
     root.className = "cs-control";
     root.id = "cs-cp-root";
-    root.appendChild(style)
+    root.appendChild(style);
+    let p = eCreate('p'),
+        h3 = eCreate('h3');
+    p.style.textAlign = 'center';
+    h3.innerHTML = "Chronoshift control panel";
+    p.appendChild(h3);
+    root.appendChild(p);
     let columnNames = createStrip();
     ePush(columnNames, [
       createCell("50px", "PID"),
       createCell("150px", "Name"),
       createCell("300px", "Description"),
       createCell("200px", "Delay/interval (ms)"),
-      createCell("200px", "Run at <span title = 'This is approximate time when task will be executed. For looped tasks this column shows time of first run'>(?)</span>"),
+      createCell("200px", "Run at <span style='cursor: help;' title = 'This is approximate time when task will be executed. For looped tasks this column shows time of first run'>[?]</span>"),
       createCell("400px", "Options")
     ]);
     root.appendChild(columnNames);
     for(name in self.tasks){
-      let task = self.tasks[name],
+      let nameValue = `${name}`,           // good bye, closure!
+          task = self.tasks[name],
           strip = createStrip(),
           options = eCreate('span'),
           buttonRun = eCreate('button'),
           buttonRemove = eCreate('button'),
-          buttonFreeze = eCreate('button');
+          buttonStop = eCreate('button');
       buttonRun.innerHTML = "Run";
       buttonRemove.innerHTML = "Remove";
-      buttonFreeze.innerHTML = "Freeze";
+      buttonRun.title = "Execute this task immediatelly";
+      buttonRemove.title = "Stop and remove this task";
       buttonRun.id = "run" + name;
       //@@@
-      buttonRun.className = `_chronoshift.run('${name}')`;
       buttonRemove.id = "remove" + name;
-      buttonFreeze.id = "freeze" + name;
-      console.log(name);
-      buttonRemove.addEventListener("click", function(){
-        _chronoshift.stop(name);
-      });
       buttonRun.addEventListener("click", function(){
-        self.runTask(""+name);
+        self.runTask( nameValue );
       });
-      buttonFreeze.addEventListener("click", function(){
-        self.freezeTask(name);
+      buttonRemove.addEventListener("click", function(){
+        self.removeTask(nameValue);
+        self.closeControlPanel();
+        self.openControlPanel();
       });
-
+      let  bCaption = "Stop",
+        bTitle = "Task will be stopped, but still be in list so You can run it.",
+        bHandler = function(){
+          self.stopTask(nameValue);
+          self.closeControlPanel();
+          self.openControlPanel();
+        };
+      if (self.tasks[name].at == 'STOPPED!'){
+        bCaption = "Restart";
+        bTitle = "Task will be runed like if it was runed at moment when button was clicked. Note that pid will be changed and delay will be calculated without time that was spent between run and stop task,it will be simply taken from task code.";
+        bHandler = function(){
+          self.restartTask(nameValue);
+          self.closeControlPanel();
+          self.openControlPanel();
+        };
+      }
+      buttonStop.innerHTML = bCaption;
+      buttonStop.title = bTitle;
+      buttonStop.id = "stop" + name;
+      buttonStop.addEventListener("click",bHandler);
 
       ePush(options,[
         buttonRun,
         buttonRemove,
-        buttonFreeze
+        buttonStop
       ]);
 
       ePush(strip, [
@@ -402,15 +467,17 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     }
     document.body.appendChild(root);
     self.cpOpened = true;
-    this.log("CP opened");
+    if (log)
+      this.log("CP opened");
   };
 
-  this.closeControlPanel = function(){
+  this.closeControlPanel = function(log){
     if (!self.cpOpened)
       return;
     document.body.removeChild(document.querySelector('#cs-cp-root'));
     self.cpOpened = false;
-    this.log("CP closed");
+    if (log)
+      this.log("CP closed");
   };
 
   //Watch keyup and waiting for Ctr Ctrl Ctrl to open control panel
@@ -421,7 +488,10 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       self.closeControlPanel();
     if (self.controlCount>=3){
       self.controlCount = 0;
-      self.openControlPanel();
+      if(!self.cpOpened)
+        self.openControlPanel(true);
+      else
+        self.closeControlPanel(true);
     }
   });
 
