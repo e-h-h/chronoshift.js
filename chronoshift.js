@@ -3,7 +3,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   window.getChronoshift = function(){
     return self;
   };
-  this.version = 1.0;
+  this.version = "1.0.0";
   this.tasks = {};
   this.logs = [];
   this.verboseLogs = false;
@@ -46,7 +46,6 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   };
 
   //Print logs in console as a table from start to end
-  //First element have index 0 !
   this.showLogs = function(start, end){
     let requiredSlice = this.logs;
     if ( (start || end)){
@@ -83,7 +82,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   //This function will be saved as task [name || random_string] with description [description]
   //[name] must be valid js variable name or it will be transliterated into such name
   //Only necessary parameters are "handler" and "delay"
-  this.run = function(handler, delay, repeat, name, description){
+  this.runTask = function(handler, delay, repeat, name, description){
     this.log("Creating task: ", JSON.stringify({
       "handler":handler,
       "delay":delay,
@@ -96,6 +95,8 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     let pid = 0;
     delay = delay? +delay : 0;
     delay = ( typeof delay == "number" && !isNaN(delay) )? delay: 0;
+    if (this.tasks[name])
+      this.removeTask(name);
     name = typeof name == "string"?
       //replace with _ all not valid in variable symbols
       name.replace(/([^a-zA-Z0-9_$])/g, "_")
@@ -126,6 +127,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       "handler": handler
     };
     this.log("Added a task ", name, " with timeout ", delay, repeat? " looped" : "");
+    this.redrawReqest();
     return pid;
   };
 
@@ -137,7 +139,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   //This task will be saved as task [name || random_string] with description [description]
   //[name] must be valid js variable name or it will be transliterated into such name
   //Only necessary parameters are "handler" and "at"
-  this.runAt = function(handler, at, name, description){
+  this.runTaskAt = function(handler, at, name, description){
     name = typeof name == "string"? name.replace(/ /g, "_"): "task_"+Math.random().toString(32).substr(2);
     while (this.tasks[name])
       name = "task_"+Math.random().toString(32).substr(2);
@@ -162,7 +164,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
         };
       });
       if (inputCase<0){
-        this.log("Function runAt aborted. Wrong date/time string: ", at);
+        this.console.log("Function runTaskAt aborted. Wrong date/time string: ", at);
         return false;
       }
       let atString = at.match(patterns[inputCase])[0];
@@ -188,44 +190,41 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     else if (typeof at == "number" && !isNaN(at))
       then = new Date(at);
     else{
-      this.log("Invalid \"at\" argument in call runAt!");
+      this.log("Invalid \"at\" argument in call runTaskAt!");
       return false;
     }
 
     let delay = then - now;
     if (delay<0){
-      this.log("Function can not be run at ", then, " nj");
+      this.log("Function can not be run at ", then);
       return false;
     }
-    this.run(handler, delay, false, name, description);
+    this.runTask(handler, delay, false, name, description);
+    this.redrawReqest();
     return true;
   };
 
-  //Run handler of task by name or pid
-  this.runTask = function(id){
-    let name = typeof id == "number"? this.getTaskName(id) : id;
-    if ( (!name || !this.tasks[name]))
-      return false;
-    this.log("Forced run task \"", name, "\" with pid ", this.tasks[name].pid);
-    this.tasks[name].handler();
-    return true;
-  };
-
-<<<<<<< HEAD
-
-=======
->>>>>>> 576fd63a8adb0ee27966a2d4f0f169545590b255
   //Return name of task with pid == [pid] || false
-  this.getTaskName = function(pid){
-    if (typeof pid != "number")
-      return false;
+  this.getTask = function(pid){
     for(x in this.tasks){
-      if (this.tasks[x].pid == pid){
-        return x;
+      if (this.tasks[x].pid == pid || this.tasks[x].name == pid){
+        return this.tasks[x];
       }
     }
     return false;
   }
+
+  //Run handler of task by name or pid
+  this.executeTask = function(id){
+    let task = this.getTask(id);
+    if (!task)
+      return false;
+    this.log("Forced run task \"", name, "\" with pid ", task.pid);
+    task.handler();
+    this.redrawReqest();
+    return true;
+  };
+
 
   //Stop task by task name in cronoshift or process id from list
   this.stopTask = function (id) {
@@ -236,65 +235,40 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       else
         clearTimeout(id);
     }
-    let found = false;
-    let name = false;
-    try{
-      if (typeof id == "number"){
-        name = this.getTaskName(id);
-        if (!name){
-          this.log("---Not found task with pid ", id, "!");
-          return false;
-        }
-        this.log("Task with pid ", id, " found");
-      }
-      else if (typeof id == "string") {
-        if (!this.tasks[id]){
-          this.log("---Task ", id), " not found!";
-          return false;
-        }
-        this.log("Task ", id, " found");
-      }
-      let finalId = name? name : id;
-      stopTask(this.tasks[finalId].pid, this.tasks[finalId].repeat);
-      this.tasks[finalId].at = 'STOPPED!';
-    }
-    catch (e){
-      this.log("---Problems when trying to stop ", id, " :", e);
+    let task = this.getTask(id);
+    if (!task)
       return false;
-    }
+    stopTask(task.pid, task.repeat);
+    task.at = 'STOPPED!';
     this.log("Stoping task ", id, " finished");
+    this.redrawReqest();
     return true;
   };
 
   this.removeTask = function(name){
-    switch (typeof name) {
-      case 'string':
-        "do nothing";
-        break;
-      case 'number':
-        name = this.getTaskName(name);
-        break;
-      default:
-        return false;
-        break;
-    }
-    this.stopTask(name);
-    delete this.tasks[name];
+    let task = this.getTask(name);
+    if (!task)
+      return false;
+    this.stopTask(task.name);
+    delete this.tasks[task.name];
+    this.redrawReqest();
+    return true;
   }
 
   this.restartTask = function(name){
-    let handler = this.tasks[name].handler,
-    timeout = this.tasks[name].timeout,
-    repeat = this.tasks[name].repeat,
-    description = this.tasks[name].description;
+    let task = this.getTask(name);
+    if (!task)
+      return false;
     let vl = this.verboseLogs,
       wl = this.writeLogs;
     this.verboseLogs = this.writeLogs = false;
-    this.removeTask(name);
-    this.run(handler, timeout, repeat, name, description);
+    this.removeTask(task.name);
+    this.runTask(task.handler, task.timeout, task.repeat, task.name, task.description);
     this.verboseLogs = vl;
     this.writeLogs = wl;
-    this.log("Restart task " + name);
+    this.log("Restart task " + name + " with pid " + this.getTask('name').pid);
+    this.redrawReqest();
+    return true;
   }
 
   //Code with long function names, especially with methods as arguments of method
@@ -319,10 +293,16 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
           });
         }
 
+        appendChain = function(x) {
+          this.appendChild(x);
+          return this;
+        };
+
         //Functions for create table row and cell
         createStrip = function(){
           let strip = eCreate('div');
           strip.className = 'strip'
+          strip.appendChain = appendChain;
           return strip;
         };
 
@@ -353,7 +333,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     top:5%;
     overflow: auto;
     position:fixed;
-    opacity: .85;
+    opacity: .8;
   }
   .cs-control button{
     border-radius: 3px;
@@ -420,30 +400,23 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       buttonRun.title = "Execute this task immediatelly";
       buttonRemove.title = "Stop and remove this task";
       buttonRun.id = "run" + name;
-      //@@@
       buttonRemove.id = "remove" + name;
       buttonRun.addEventListener("click", function(){
-        self.runTask( nameValue );
+        self.executeTask( nameValue );
       });
       buttonRemove.addEventListener("click", function(){
         self.removeTask(nameValue);
-        self.closeControlPanel();
-        self.openControlPanel();
       });
       let  bCaption = "Stop",
         bTitle = "Task will be stopped, but still be in list so You can run it.",
         bHandler = function(){
           self.stopTask(nameValue);
-          self.closeControlPanel();
-          self.openControlPanel();
         };
       if (self.tasks[name].at == 'STOPPED!'){
         bCaption = "Restart";
         bTitle = "Task will be runed like if it was runed at moment when button was clicked. Note that pid will be changed and delay will be calculated without time that was spent between run and stop task,it will be simply taken from task code.";
         bHandler = function(){
           self.restartTask(nameValue);
-          self.closeControlPanel();
-          self.openControlPanel();
         };
       }
       buttonStop.innerHTML = bCaption;
@@ -483,6 +456,23 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       this.log("CP closed");
   };
 
+  this.redrawReqest = function(){
+    let e = new Event("csredrawrequired");
+    window.dispatchEvent(e)
+  }
+
+  window.addEventListener("csredrawrequired",function(){
+    if (!self.cpOpened)
+      return;
+    let vl = this.verboseLogs,
+      vt = this.verboseTime,
+      wl = this.writeLogs;
+    self.setLogging(0, 0, 0);
+    self.closeControlPanel();
+    self.openControlPanel();
+    self.setLogging(vl, vt, wl);
+  }, false);
+
   //Watch keyup and waiting for Ctr Ctrl Ctrl to open control panel
   window.addEventListener("keyup", function(e){
     if (e.key == "Control")
@@ -498,9 +488,16 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     }
   });
 
+
   this.verboseLogs = verboseLogs;
   this.verboseTime = verboseTime;
   this.writeLogs = writeLogs;
-  this.run(()=>{console.log("Example function executed");}, 42000000, false, "example", "This is a sample task. It will do nothing.");
+  this.runTask( () => {
+    console.log("Example function executed");
+  },
+  42000000,
+  false,
+  "example",
+  "This is a sample task. It will do nothing.");
 
 }

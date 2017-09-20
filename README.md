@@ -3,7 +3,7 @@ chronoshift.js
 Not now!
 --------
 
-This is a simple library to execute your code. Later. Main idea is to create a task manager for javascript with some GUI.
+This is a simple library to execute your code with some latency. Main idea is to create a task manager for javascript with some GUI.
 
 Basic usage
 -----------
@@ -29,7 +29,9 @@ Full format is
 Example of full format:
 
     cs.run(
-      ()=>{console.log("My test task!")},  //write into console "My test task!"
+      ()=>{
+        console.log("My test task!");
+      },                                   //write into console "My test task!"
       10000,                               //after 10 secons
       "repeat",                            //every 10 seconds
       "servant1",                          //this task name is servant1
@@ -46,24 +48,30 @@ This code will stop a task with this id, no mater this is cycle or delayed execu
 
 Note that you cant turn off a timer not created with chronoshift. All timers stored in cs.tasks and if id or name not in this list it will be ignored.
 
-In some cases more useful method is runAt which allow you to run code at certain time, for example:
+In some cases more useful method is runTaskAt which allow you to run code at certain time, for example:
 
     //lunch time, any day at 12:30
-    cs.runAt(
-      ()=>{alert("Lunch!");},
+    cs.runTaskAt(
+      ()=>{
+        alert("Lunch!");
+      },
       "12:30:00"
     );
 
     //her Birthday, six of may, 30 minutes before leaving the office
-    cs.runAt(
-      ()=>{alert("You need a gold necklace!");},
+    cs.runTaskAt(
+      ()=>{
+        alert("You need a gold necklace!");
+      },
       "2017-05-06 16:30:00",
       "Jane_birthday"  //name of task
       );
 
     //25 years working here, time to get drunk
-    cs.runAt(
-      ()=>{alert("You waste your life by coding javascript!");},
+    cs.runTaskAt(
+      ()=>{
+        alert("You waste your life by coding javascript!");
+      },
       "2045-12-21 09:30",
       "wasted",                                //name of task
       "You still have some time to see Paris!" //description
@@ -82,9 +90,9 @@ Any task may be run immediatelly, restarted after being stoped and completelly r
 To execute task right now, not after it's delay you should call method runTask:
 
     //by name:
-    cs.runTask('servant1');
+    cs.executeTask('servant1');
     //or by id:
-    cs.runTask(42);
+    cs.executeTask(42);
 
 This method will not change task, it only run chosen task and his execution shedule will not be changed. If task was stoped and then runTask was called it still will be executed without returning it into shedule.
 
@@ -104,20 +112,24 @@ After being removed task may free a lot of memory through closures.
 GUI
 ---
 
-Just press Ctrl, Ctrl, Ctrl. To close do it again or press Esc. Note that GUI not watching Chronoshift usage through code and you may be needed to reopen GUI to see it.
+Just press Ctrl, Ctrl, Ctrl. To close do it again or press Esc. Note that GUI usage may interrupt logging (in VERY rare cases, not completely stop logging, only miss string or two).
 
 Logs
 ----
 
-Chronoshift have a good logs! You can read them instantly in console or whenever you want it by calling two methods:
+Chronoshift have a good logs! You can read them by calling this method:
 
     cs.showLogs();
-    cs.showTasks();
 
-This metods reads stored logs and show them in nice tables. When new Chronoshift comes, it create a test task (with no action) and log its creation, so you can see what your logs will be looks like.  
+This metod reads stored logs and show them in nice tables. When new Chronoshift comes, it create a test task (with no action) and log its creation, so you can see what your logs will be looks like.  
 
-Note that both of this method use experimental console api method console.table() and not guaranted to work properly. If you want to use your own visualisation of logs and tasks you should use fields cs.logs and cs.tasks.
+If you need to see what tasks are seted now you can use:
 
+    cs.showTasks():
+
+Note that both of this methods use experimental console api method console.table() and not guaranted to work properly. If you want to use your own visualisation of logs and tasks you should use fields cs.logs and cs.tasks. For example:
+
+    console.log(JSON.stringify(cs.tasks));
 
 By default, console logs are hidden. If you want to see console messages about runing tasks and stoping them you should use:
 

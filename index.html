@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Chronoshift example</title>
+  </head>
+  <body>
+    <h3 id="h3_1">Click on ball to launch or stop task. Open console to see what happens.</h3>
+    <style>
+      .circle{
+        border-radius: 25px;
+        width: 50px;
+        height: 50px;
+        /*position: absolute;*/
+        background-color: red;
+        margin-left: 20px;
+        transition-duration: 1000ms;
+        display: inline-block;
+      }
+      #h3_1{
+        margin-top: calc(10%);
+        text-align: center;
+      }
+    </style>
+    <script type="text/javascript" src="chronoshift.js"></script>
+    <script type="text/javascript">
+    var cs = new Chronoshift(true, true, true);
+    let md = document.createElement('div');
+    md.style = "text-align: center";
+    for (var i = 0; i < 10; i++) {
+      let d = document.createElement('div');
+      d.setAttribute('data-active', false);
+      d.className = "circle";
+      d.id = "indicator" + i;
+      d.style = `left:${i*60}px; background-color: rgba(${`${i*24}, ${i*24}, ${i*24}`},1)`;
+      let ti = i; // using of 'i' var-variable in listener will create a closure so we use let-variable 'ti' that will not
+      d.addEventListener('click', function(e){
+        if (d.getAttribute('data-active') == 'false'){
+          d.setAttribute('data-active', true);
+          var xm = innerWidth-50,
+          ym = innerHeight - 50;
+          cs.runTask(()=>{
+            let x = xm + 1,
+            y = ym + 1;
+            while (x > xm) {
+              x = Math.floor(Math.random() * xm)
+            }
+            while (y > ym) {
+              y = Math.floor(Math.random() * ym)
+            }
+            d.style.left = x + "px";
+            d.style.top = y + "px";
+            d.style.position = "absolute";
+          },3000, true,'ball' + ti);
+        }
+        else{
+          d.setAttribute('data-active', false);
+          d.style.left = "0px";
+          d.style.top = "0px";
+          d.style.position = "relative";
+          cs.stopTask('ball' + ti);
+        }
+      });
+    md.appendChild(d);
+    document.body.appendChild(md);
+    }
+    </script>
+  </body>
+</html>
