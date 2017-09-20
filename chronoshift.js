@@ -90,12 +90,11 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       "name":name,
       "description":description
     }));
-    if(!handler)
+    if(typeof handler != 'function')
       return false;
     let pid = 0;
-    delay = delay? +delay : 0;
-    delay = ( typeof delay == "number" && !isNaN(delay) )? delay: 0;
-    if (this.tasks[name])
+    delay = parseInt(delay) || 0;
+    if (this.getTask(name))
       this.removeTask(name);
     name = typeof name == "string"?
       //replace with _ all not valid in variable symbols
@@ -107,14 +106,15 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     //check for existence of this name in task
     //yes, this is possible, even if chanse less then 1:1 000 000
     while (this.tasks[name])
-        name = "task_"+Math.random().toString(32).substr(2);
+      name = "task_"+Math.random().toString(32).substr(2);
     description = description? "" + description : "No description";
-    if (repeat){
-      pid = setInterval(()=>{handler();this.log("Task executed:", name);}, delay);
-    }
-    else{
-      pid = setTimeout(()=> {handler();this.log("Task executed:", name);this.stop(name); }, delay);
-    };
+    let setIT = repeat? setInterval : setTimeout;
+    pid = setIT(()=> {
+      handler();
+      this.log("Task executed:", name);
+      if (!repeat)
+        this.tasks[name].at = "EXECUTED!";
+    }, delay, repeat);
     let at = new Date(Date.now()+delay);
     at = at.toLocaleString().replace(/(T|Z)/gi, " ");
     this.tasks[name] = {
@@ -140,9 +140,6 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   //[name] must be valid js variable name or it will be transliterated into such name
   //Only necessary parameters are "handler" and "at"
   this.runTaskAt = function(handler, at, name, description){
-    name = typeof name == "string"? name.replace(/ /g, "_"): "task_"+Math.random().toString(32).substr(2);
-    while (this.tasks[name])
-      name = "task_"+Math.random().toString(32).substr(2);
     let now = new Date(), then = new Date();
 
     if (typeof at == "string"){
@@ -150,6 +147,10 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
         /^\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}.\d{1,3}$/,
         /^\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}$/,
         /^\d{2,4}-\d{1,2}-\d{1,2}$/,
+
+        /^\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}$/,
+        /^\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}$/,
+
         /^\d{1,2}:\d{1,2}:\d{1,2}.\d{1,3}$/,
         /^\d{1,2}:\d{1,2}:\d{1,2}$/,
         /^\d{1,2}:\d{1,2}$/
@@ -164,26 +165,37 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
         };
       });
       if (inputCase<0){
-        this.console.log("Function runTaskAt aborted. Wrong date/time string: ", at);
+        this.log("Function runTaskAt aborted. Wrong date/time string: ", at);
         return false;
       }
       let atString = at.match(patterns[inputCase])[0];
       switch (inputCase) {
+        //date or date and time
         case 0:
         case 1:
         case 2:
           atStringYear = atString.split("-")[0];
           if (atStringYear.length == 2)
             atString = "20" + atString;
-        break;
+          break;
+        //month and time
         case 3:
         case 4:
+          let fullYear = now.getFullYear();
+          if (now > new Date( fullYear + "-" + atString) )
+            fullYear += 1;
+          atString = fullYear + "-" + atString;
+          break;
         case 5:
+        case 6:
+        case 7:
           atString = "" + now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate() + " " + atString;
+          break;
         default:
+          break;
       }
       then = new Date(atString);
-      if (then < now && inputCase>2) {
+      if (then < now && inputCase>4) {
         then = new Date(then.getTime() + 24*60*60*1000);
       }
     }
@@ -195,7 +207,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     }
 
     let delay = then - now;
-    if (delay<0){
+    if (delay<0 || delay >= 2147483647){
       this.log("Function can not be run at ", then);
       return false;
     }

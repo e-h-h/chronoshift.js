@@ -5,7 +5,7 @@
     <title>Chronoshift example</title>
   </head>
   <body>
-    <h3 id="h3_1">Click on ball to launch or stop task. Open console to see what happens.</h3>
+    <h3 id="h3_1">Click on ball to launch or stop task. Open console to see what happens. Press Ctrl, Ctrl, Ctrl to open control panel.</h3>
     <style>
       .circle{
         border-radius: 25px;
@@ -32,11 +32,13 @@
       d.setAttribute('data-active', false);
       d.className = "circle";
       d.id = "indicator" + i;
-      d.style = `left:${i*60}px; background-color: rgba(${`${i*24}, ${i*24}, ${i*24}`},1)`;
+      d.style = `left:${i*60}px; top: 0px; background-color: rgba(${`${i*24}, ${i*24}, ${i*24}`},1)`;
       let ti = i; // using of 'i' var-variable in listener will create a closure so we use let-variable 'ti' that will not
       d.addEventListener('click', function(e){
         if (d.getAttribute('data-active') == 'false'){
+          d.style.position = "absolute";
           d.setAttribute('data-active', true);
+          d.style.left = "0px";
           var xm = innerWidth-50,
           ym = innerHeight - 50;
           cs.runTask(()=>{
@@ -50,8 +52,7 @@
             }
             d.style.left = x + "px";
             d.style.top = y + "px";
-            d.style.position = "absolute";
-          },3000, true,'ball' + ti);
+          },3000, true,'ball' + ti, "This task control ball" + ti + " movement");
         }
         else{
           d.setAttribute('data-active', false);
