@@ -11,8 +11,7 @@
         border-radius: 25px;
         width: 50px;
         height: 50px;
-        /*position: absolute;*/
-        background-color: red;
+        position: absolute;
         margin-left: 20px;
         transition-duration: 1000ms;
         display: inline-block;
@@ -24,21 +23,25 @@
     </style>
     <script type="text/javascript" src="chronoshift.js"></script>
     <script type="text/javascript">
-    var cs = new Chronoshift(true, true, true);
-    let md = document.createElement('div');
+    var cs = new Chronoshift(true, true, true),
+      md = document.createElement('div'),
+      ball0Left = 175,
+      lineLength = innerWidth - 400,
+      ballStep = lineLength/10;
     md.style = "text-align: center";
     for (var i = 0; i < 10; i++) {
       let d = document.createElement('div');
       d.setAttribute('data-active', false);
       d.className = "circle";
       d.id = "indicator" + i;
-      d.style = `left:${i*60}px; top: 0px; background-color: rgba(${`${i*24}, ${i*24}, ${i*24}`},1)`;
+      d.style = `left:${ball0Left + i * ballStep}px; top: calc(40%); background-color: rgba(${`${i*24}, ${i*24}, ${i*24}`},1)`;
       let ti = i; // using of 'i' var-variable in listener will create a closure so we use let-variable 'ti' that will not
       d.addEventListener('click', function(e){
         if (d.getAttribute('data-active') == 'false'){
-          d.style.position = "absolute";
           d.setAttribute('data-active', true);
+          d.style.top = (ti * .1 * innerHeight) + "px";
           d.style.left = "0px";
+          d.style.backgroundColor = `rgba(${`${100+ti*12}, ${ti*5}, ${ti*5}`},1)`;
           var xm = innerWidth-50,
           ym = innerHeight - 50;
           cs.runTask(()=>{
@@ -56,9 +59,7 @@
         }
         else{
           d.setAttribute('data-active', false);
-          d.style.left = "0px";
-          d.style.top = "0px";
-          d.style.position = "relative";
+          d.style = `left:${ball0Left + ti * ballStep}px; top: calc(40%);` + `background-color: rgba(${`${ti*5}, ${100+ti*12}, ${ti*5}`},1);`;
           cs.stopTask('ball' + ti);
         }
       });

@@ -339,9 +339,9 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     border-radius: 3px;
     background-color: ivory;
     border: 1px solid black;
-    min-width: 1300px;
-    left:2%;
+    left:5%;
     height:90%;
+    width:90%;
     top:5%;
     overflow: auto;
     position:fixed;
@@ -360,7 +360,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   }
 
   .cs-control .strip{
-    min-width: 99%;
+    min-width: 1300px;
     height: 24px;
     margin: 5px 0px 5px;
   }
