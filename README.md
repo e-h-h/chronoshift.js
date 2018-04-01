@@ -11,15 +11,15 @@ Basic usage
 Include this library to your project as any other js file.
 First you need to create an instance of chronoshift, like that:
 
-    var cs = new Cronoshift();
+    var cs = new Chronoshift();
 
 Then you can use it's api for execution of your code:
 
-    cs.run(my_function, 5000); // call my_function with 5 seconds delay
+    cs.runTask(my_function, 5000); // call my_function with 5 seconds delay
 
 Full format is
 
-    run(function, delay, loop, name, description)
+    runTask(function, delay, loop, name, description)
     //function - your function, obviously,
     //delay - delay in ms,
     //loop - boolean variable that defines whether function will run once or will be endlessly repeated with same delay; non-boolean values will be casted
@@ -28,7 +28,7 @@ Full format is
 
 Example of full format:
 
-    cs.run(
+    cs.runTask(
       ()=>{
         console.log("My test task!");
       },                                   //write into console "My test task!"
@@ -40,11 +40,11 @@ Example of full format:
 This method returns timer id, a number, using it you can stop execution of task:
 
     //for example, when run servant1 it returns a 42
-    cs.stop(42);
+    cs.stopTask(42);
 
 This code will stop a task with this id, no mater this is cycle or delayed execution. Not very usefull, right? That's why we need a name parameter in run method! Now you can do this:
 
-    cs.stop("servant1");
+    cs.stopTask("servant1");
 
 Note that you cant turn off a timer not created with chronoshift. All timers stored in cs.tasks and if id or name not in this list it will be ignored.
 
@@ -87,7 +87,7 @@ Managing tasks
 
 Any task may be run immediatelly, restarted after being stoped and completelly removed.
 
-To execute task right now, not after it's delay you should call method runTask:
+To execute task right now, not after it's delay you should call method executeTask:
 
     //by name:
     cs.executeTask('servant1');
@@ -101,13 +101,22 @@ When task stoped it wil not be deleted and can be restarted:
     //yes, and this method can operate both name or pid,
     cs.restartTask("servant1");
 
-After this code task will be relaunched. NOT continued, relunched! It means that if you run task with delay 30 seconds, then stop it after 20 seconds and run it again later task will be executed not after rest 10 seconds but after 30 seconds.
+After this code task will be relaunched. NOT continued, relunched! It means that if you run task with delay 30 seconds, then stop it after 20 seconds and run it again later task will be executed not after rest 10 seconds but after 30 seconds, as is it was newly created.
 
 And at last, task can be completely removed. It will be cleared from memory, not only from list.
 
     cs.removeTask(42);
 
 After being removed task may free a lot of memory through closures.
+
+Also you may want to manipulate task directly. This is not very good idea, but if you realy want to...
+
+  //get task with pid 42
+  var task = cs.getTask(42);
+  //get task with name 'garbage_collector'
+  var task = cs.getTask('garbage_collector');
+
+Single task has obvious methods 'execute', 'stop' and 'restart'. Use this methods on your own risk, which is really big.
 
 GUI
 ---
@@ -119,13 +128,32 @@ Logs
 
 Chronoshift have a good logs! You can read them by calling this method:
 
-    cs.showLogs();
+    cs.showLogs(start, end);
 
-This metod reads stored logs and show them in nice tables. When new Chronoshift comes, it create a test task (with no action) and log its creation, so you can see what your logs will be looks like.  
+This metod reads stored logs and print them in the console as nice tables. Start is a number of record in logs from which you start, end is the one which you end. If no data was given all log will be prinred, one value will be interpretated as "show all after this record";
+
+When new Chronoshift comes, it create a test task (with no action) and log its creation, so you can see what your logs will be looks like.  
+
+// last ten records
+cs.showLogs(-10);
+//first ten records
+cs.showLogs(0, 10);
+//all after 42'nd record
+cs.showLogs(42);
+//records from 256 to 512
+cs.showLogs(256, 512);
 
 If you need to see what tasks are seted now you can use:
 
-    cs.showTasks():
+    cs.showTasks(startOrSet, end);
+
+Arguments are the same as in showLogs, but as first parameter you can use array with ids or names of tasks. Note that integers in 'startOrSet' and 'end' not order of creation,  it is position in stack of tasks.
+
+ //show 5 task after 1337
+cs.showTasks(1337, 1337 + 5);
+//show tasks with names'vene', 'vidi', 'vici' and one with pid 23
+cs.showTasks(['vene', 'vidi', 'vici', 23]);
+
 
 Note that both of this methods use experimental console api method console.table() and not guaranted to work properly. If you want to use your own visualisation of logs and tasks you should use fields cs.logs and cs.tasks. For example:
 

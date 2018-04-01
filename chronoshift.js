@@ -3,7 +3,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   window.getChronoshift = function(){
     return self;
   };
-  this.version = "1.0.0";
+  this.version = "1.0.1";
   this.tasks = {};
   this.logs = [];
   this.verboseLogs = false;
@@ -45,12 +45,12 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       this.logs.push({"log": logData, "time": nowAsString, "timestamp": now.getTime()});
   };
 
-  //Print logs in console as a table from start to end
+  //Print last log records in console as a table from #start to #end, without parameters all log will be printred
   this.showLogs = function(start, end){
     let requiredSlice = this.logs;
     if ( (start || end)){
       start = +start || 0;
-      end = +end || (this.logs.length);
+      end = +end || (this.logs.length-1);
       if (!isNaN(start+end))
         requiredSlice = this.logs.slice(start, end);
     }
@@ -60,22 +60,21 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   //Print tasks in console as a table from start to end OR some set of names
   this.showTasks = function(startOrSet, end){
     let requiredSlice = this.tasks;
-    if ( (startOrSet || end) && !startOrSet.slice){
+    if ( (startOrSet || end) && !(startOrSet instanceof Array)){
       let start = startOrSet;
       start = +start || 0;
       end = +end || (this.tasks.length);
       if (!isNaN(start+end))
         requiredSlice = this.tasks.slice(start, end);
     }
-    else if (startOrSet && !end && startOrSet.forEach){
+    else if (startOrSet && !end && (startOrSet instanceof Array)){
       let set = startOrSet;
       requiredSlice = [];
       set.forEach(function(e, i, a){
-        requiredSlice.push(self.tasks[e]);
+        requiredSlice.push(self.getTask(e));
       });
     }
     console.table(requiredSlice);
-
   }
 
   //Run function [handler] with [delay]ms delay, if [repeat] then repeat [handler] every [delay]ms
@@ -96,13 +95,13 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     delay = parseInt(delay) || 0;
     if (this.getTask(name))
       this.removeTask(name);
-    name = typeof name == "string"?
+    name = typeof name == "string" ?
       //replace with _ all not valid in variable symbols
       name.replace(/([^a-zA-Z0-9_$])/g, "_")
         //then replace first symbol with _ if this sybol is digit
         .replace(/^\d/, 'd'):
       //generate random name if argument name is not a string
-      "task_"+Math.random().toString(32).substr(2);
+      "task_" + Math.random().toString(32).substr(2);
     //check for existence of this name in task
     //yes, this is possible, even if chanse less then 1:1 000 000
     while (this.tasks[name])
@@ -126,6 +125,12 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       "name": name,
       "handler": handler
     };
+    ['execute', 'stop', 'restart', 'remove'].forEach( (e, i, a) => {
+      let tmpPid = pid;
+      self.tasks[name][e] = () => {
+        return self[e + 'Task'](tmpPid);
+      }
+    })
     this.log("Added a task ", name, " with timeout ", delay, repeat? " looped" : "");
     this.redrawReqest();
     return pid;
