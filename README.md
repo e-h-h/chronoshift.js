@@ -111,10 +111,10 @@ After being removed task may free a lot of memory through closures.
 
 Also you may want to manipulate task directly. This is not very good idea, but if you realy want to...
 
-  //get task with pid 42
-  var task = cs.getTask(42);
-  //get task with name 'garbage_collector'
-  var task = cs.getTask('garbage_collector');
+    //get task with pid 42
+    var task = cs.getTask(42);
+    //get task with name 'garbage_collector'
+    var task = cs.getTask('garbage_collector');
 
 Single task has obvious methods 'execute', 'stop' and 'restart'. Use this methods on your own risk, which is really big.
 
