@@ -134,25 +134,25 @@ This metod reads stored logs and print them in the console as nice tables. Start
 
 When new Chronoshift comes, it create a test task (with no action) and log its creation, so you can see what your logs will be looks like.  
 
-// last ten records
-cs.showLogs(-10);
-//first ten records
-cs.showLogs(0, 10);
-//all after 42'nd record
-cs.showLogs(42);
-//records from 256 to 512
-cs.showLogs(256, 512);
+    // last ten records
+    cs.showLogs(-10);
+    //first ten records
+    cs.showLogs(0, 10);
+    //all after 42'nd record
+    cs.showLogs(42);
+    //records from 256 to 512
+    cs.showLogs(256, 512);
 
 If you need to see what tasks are seted now you can use:
 
     cs.showTasks(startOrSet, end);
 
-Arguments are the same as in showLogs, but as first parameter you can use array with ids or names of tasks. Note that integers in 'startOrSet' and 'end' not order of creation,  it is position in stack of tasks.
+Arguments are the same as in showLogs, but as first parameter you can use array with ids or names of tasks. Note that integers in 'startOrSet' and 'end' not order of creation or pid, it is position in stack of tasks.
 
- //show 5 task after 1337
-cs.showTasks(1337, 1337 + 5);
-//show tasks with names'vene', 'vidi', 'vici' and one with pid 23
-cs.showTasks(['vene', 'vidi', 'vici', 23]);
+    //show 5 task after 1337
+    cs.showTasks(1337, 1337 + 5);
+    //show tasks with names'vene', 'vidi', 'vici' and one with pid 23
+    cs.showTasks(['vene', 'vidi', 'vici', 23]);
 
 
 Note that both of this methods use experimental console api method console.table() and not guaranted to work properly. If you want to use your own visualisation of logs and tasks you should use fields cs.logs and cs.tasks. For example:
