@@ -1,10 +1,13 @@
 function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true) {
   let self = this;
-  window.getChronoshift = function(){
-    return self;
-  };
-  this.version = "1.0.1";
+  if (window){
+    window.getChronoshift = function(){
+      return self;
+    };
+  }
+  this.version = "1.0.2";
   this.tasks = {};
+  this.nextTagId = 0;
   this.logs = [];
   this.verboseLogs = false;
   this.verboseTime = false;
@@ -17,8 +20,9 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   //verboseTime - add or not add timestamp
   //writeLogs - store or not store logs in inner storage (this.logs)
   this.setLogging = function(verboseLogs, verboseTime = this.verboseTime, writeLogs = this.writeLogs){
-    if (verboseLogs == undefined)
+    if (verboseLogs == undefined){
       return;
+    }
     this.verboseLogs = !!verboseLogs;
     this.verboseTime = !!verboseTime;
     this.writeLogs = !!writeLogs;
@@ -28,26 +32,39 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   this.log = function(){
     let now = new Date();
     let nowAsString = now.toLocaleString() + "." + now.getMilliseconds();
+
     if (this.verboseLogs){
       if (this.verboseTime){
         console.log("[" + nowAsString + "] \r");
       }
     console.log.apply(null,arguments);
     }
+
     let logData = [];
     let i = 0;
+
     while(arguments[i]){
       logData[i] = arguments[i];
       i++;
     }
+
     logData = logData.join("");
-    if (this.writeLogs)
-      this.logs.push({"log": logData, "time": nowAsString, "timestamp": now.getTime()});
+
+    if (this.writeLogs){
+      this.logs.push(
+        {
+          "log": logData,
+          "time": nowAsString,
+          "timestamp": now.getTime()
+        }
+      );
+    }
   };
 
   //Print last log records in console as a table from #start to #end, without parameters all log will be printred
   this.showLogs = function(start, end){
     let requiredSlice = this.logs;
+
     if ( (start || end)){
       start = +start || 0;
       end = +end || (this.logs.length-1);
@@ -60,6 +77,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   //Print tasks in console as a table from start to end OR some set of names
   this.showTasks = function(startOrSet, end){
     let requiredSlice = this.tasks;
+
     if ( (startOrSet || end) && !(startOrSet instanceof Array)){
       let start = startOrSet;
       start = +start || 0;
@@ -67,6 +85,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       if (!isNaN(start+end))
         requiredSlice = this.tasks.slice(start, end);
     }
+
     else if (startOrSet && !end && (startOrSet instanceof Array)){
       let set = startOrSet;
       requiredSlice = [];
@@ -91,6 +110,8 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     }));
     if(typeof handler != 'function')
       return false;
+    //id of task is only order of creation, used only for sort in control panel
+    let id = this.nextTagId += 1;
     let pid = 0;
     delay = parseInt(delay) || 0;
     if (this.getTask(name))
@@ -117,6 +138,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     let at = new Date(Date.now()+delay);
     at = at.toLocaleString().replace(/(T|Z)/gi, " ");
     this.tasks[name] = {
+      "id": id,
       "pid": pid,
       "timeout":delay,
       "at": at,
@@ -221,7 +243,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
     return true;
   };
 
-  //Return name of task with pid == [pid] || false
+  //Return task with pid == [pid] || false
   this.getTask = function(pid){
     for(x in this.tasks){
       if (this.tasks[x].pid == pid || this.tasks[x].name == pid){
@@ -292,7 +314,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   //hard to read, so here created some shortcuts
 
   this.openControlPanel = function(log){
-    if (self.cpOpened){
+    if (self.cpOpened || !window){
       return false;
     }
 
@@ -404,7 +426,12 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
       createCell("400px", "Options")
     ]);
     root.appendChild(columnNames);
+    let tasks = [];
     for(name in self.tasks){
+      tasks.push(name);
+    }
+    tasks.sort((a,b) => {return a > b});
+    tasks.forEach( (name, index, stack) =>{
       let nameValue = `${name}`,           // good bye, closure!
           task = self.tasks[name],
           strip = createStrip(),
@@ -451,13 +478,13 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
         createCell("50px", task.pid),
         createCell("150px", task.name.length > 21? `<span title="${task.name}">${task.name}</span>` : task.name),
         createCell("300px", task.description.length > 42? `<span title="${task.description}">${task.description}</span>` : task.description),
-        createCell("200px", task.timeout),
+        createCell("200px", task.timeout + (task.repeat? "<b> [&infin;]</b>" : "")),
         createCell("200px", task.at),
         createCell("400px", options)
 
       ]);
       root.appendChild(strip);
-    }
+    });
     document.body.appendChild(root);
     self.cpOpened = true;
     if (log)
@@ -465,7 +492,7 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   };
 
   this.closeControlPanel = function(log){
-    if (!self.cpOpened)
+    if (!self.cpOpened || !window)
       return;
     document.body.removeChild(document.querySelector('#cs-cp-root'));
     self.cpOpened = false;
@@ -474,36 +501,43 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   };
 
   this.redrawReqest = function(){
+    if (!window){
+      return false;
+    }
     let e = new Event("csredrawrequired");
     window.dispatchEvent(e)
   }
 
-  window.addEventListener("csredrawrequired",function(){
-    if (!self.cpOpened)
+  //Listeners for control panel
+
+  if (window){
+    window.addEventListener("csredrawrequired",function(){
+      if (!self.cpOpened)
       return;
-    let vl = this.verboseLogs,
+      let vl = this.verboseLogs,
       vt = this.verboseTime,
       wl = this.writeLogs;
-    self.setLogging(0, 0, 0);
-    self.closeControlPanel();
-    self.openControlPanel();
-    self.setLogging(vl, vt, wl);
-  }, false);
-
-  //Watch keyup and waiting for Ctr Ctrl Ctrl to open control panel
-  window.addEventListener("keyup", function(e){
-    if (e.key == "Control")
-      self.controlCount++;
-    else if (e.key == "Escape")
+      self.setLogging(0, 0, 0);
       self.closeControlPanel();
-    if (self.controlCount>=3){
-      self.controlCount = 0;
-      if(!self.cpOpened)
+      self.openControlPanel();
+      self.setLogging(vl, vt, wl);
+    }, false);
+
+    //Watch keyup and waiting for Ctr Ctrl Ctrl to open control panel
+    window.addEventListener("keyup", function(e){
+      if (e.key == "Control")
+      self.controlCount++;
+      else if (e.key == "Escape")
+      self.closeControlPanel();
+      if (self.controlCount>=3){
+        self.controlCount = 0;
+        if(!self.cpOpened)
         self.openControlPanel(true);
-      else
+        else
         self.closeControlPanel(true);
-    }
-  });
+      }
+    });
+  }
 
 
   this.verboseLogs = verboseLogs;
@@ -516,5 +550,4 @@ function Chronoshift (verboseLogs = false, verboseTime = false, writeLogs = true
   false,
   "example",
   "This is a sample task. It will do nothing.");
-
 }
